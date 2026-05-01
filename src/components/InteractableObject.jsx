@@ -1,0 +1,98 @@
+import React, { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useStore } from '../store';
+import * as THREE from 'three';
+
+const ballMat = new THREE.MeshStandardMaterial({
+  color: '#e83050',
+  roughness: 0.2,
+  metalness: 0.1,
+});
+const cubeMat = new THREE.MeshStandardMaterial({
+  color: '#3080e8',
+  roughness: 0.4,
+  metalness: 0.2,
+});
+const canMat = new THREE.MeshPhysicalMaterial({
+  color: '#silver',
+  roughness: 0.3,
+  metalness: 0.9,
+  clearcoat: 0.5,
+});
+
+export default function InteractableObject({ pincerRefs }) {
+  const meshRef = useRef();
+  
+  // Store state
+  const attachedTo = useStore(s => s.attachedTo);
+  const ballPosition = useStore(s => s.ballPosition);
+  const targetType = useStore(s => s.targetType);
+  const isSelected = useStore(s => s.isTargetSelected);
+  const setIsSelected = useStore(s => s.setIsTargetSelected);
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+
+    if (attachedTo && pincerRefs[attachedTo]?.current) {
+      // Follow the pincer if attached
+      const pincer = pincerRefs[attachedTo].current;
+      const targetPos = new THREE.Vector3();
+      pincer.getWorldPosition(targetPos);
+      // Offset slightly down so it sits in the claws
+      targetPos.y -= 0.15;
+      meshRef.current.position.lerp(targetPos, 0.2);
+    } else {
+      // Lerp to the target position on the floor
+      const target = new THREE.Vector3(...ballPosition);
+      meshRef.current.position.lerp(target, 0.15);
+    }
+    
+    // Add a gentle floating/bobbing effect if selected
+    if (isSelected && !attachedTo) {
+      const time = Date.now() * 0.005;
+      meshRef.current.position.y = ballPosition[1] + Math.sin(time) * 0.05 + 0.05;
+      meshRef.current.rotation.y += 0.02;
+    } else {
+      // Reset rotation slowly if not selected
+      meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, 0, 0.1);
+    }
+  });
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (!attachedTo) {
+      setIsSelected(!isSelected);
+    }
+  };
+
+  return (
+    <group>
+      {/* The main object */}
+      <mesh
+        ref={meshRef}
+        position={ballPosition}
+        castShadow
+        receiveShadow
+        onClick={handleClick}
+        onPointerOver={() => { document.body.style.cursor = 'pointer'; }}
+        onPointerOut={() => { document.body.style.cursor = 'default'; }}
+      >
+        {targetType === 'ball' && <sphereGeometry args={[0.15, 32, 32]} />}
+        {targetType === 'cube' && <boxGeometry args={[0.25, 0.25, 0.25]} />}
+        {targetType === 'can'  && <cylinderGeometry args={[0.12, 0.12, 0.35, 32]} />}
+        
+        {targetType === 'ball' && <primitive object={ballMat} attach="material" />}
+        {targetType === 'cube' && <primitive object={cubeMat} attach="material" />}
+        {targetType === 'can'  && <primitive object={canMat} attach="material" />}
+      </mesh>
+
+      {/* Selection Ring Indicator */}
+      {isSelected && !attachedTo && (
+        <mesh position={[ballPosition[0], 0.02, ballPosition[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.25, 0.3, 32]} />
+          <meshBasicMaterial color="#e8a45a" transparent opacity={0.8} />
+        </mesh>
+      )}
+    </group>
+  );
+}
