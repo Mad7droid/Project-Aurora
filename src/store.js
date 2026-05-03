@@ -289,11 +289,11 @@ export const useStore = create((set, get) => ({
       s({ pincerOpen: 1 }); 
       await delay(200);
       s({ baseAngle }); 
-      await delay(600);
+      await delay(800); // give base more time to turn
       s({ shoulderAngle, elbowAngle }); 
-      await delay(800);
+      await delay(1200); // give arm more time to reach the floor
       s({ pincerOpen: 0 }); // Grab
-      await delay(400);
+      await delay(600);
       
       // Officially attach the ball to the arm's pincer target
       get().setBallState(target, ballPosition);

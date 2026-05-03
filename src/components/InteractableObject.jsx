@@ -48,8 +48,9 @@ export default function InteractableObject({ pincerRefs }) {
     // Detect drop transition: was attached, now free
     if (prevAttachedTo.current && !attachedTo) {
       const cur = meshRef.current.position;
-      // We don't lerp to the floor, we let gravity take over.
-      velocityY.current = 0; // reset velocity on drop
+      // Record the actual drop X/Z in the store so it doesn't "reset" back to the original spot
+      setBallState(null, [cur.x, 0.15, cur.z]);
+      velocityY.current = 0; 
     }
     prevAttachedTo.current = attachedTo;
 
@@ -60,10 +61,10 @@ export default function InteractableObject({ pincerRefs }) {
       pincer.getWorldPosition(targetPos);
       targetPos.y -= 0.15;
       
-      // Deterministic damp for pick-up
-      meshRef.current.position.x = THREE.MathUtils.damp(meshRef.current.position.x, targetPos.x, 15, delta);
-      meshRef.current.position.y = THREE.MathUtils.damp(meshRef.current.position.y, targetPos.y, 15, delta);
-      meshRef.current.position.z = THREE.MathUtils.damp(meshRef.current.position.z, targetPos.z, 15, delta);
+      // Faster damp for pick-up to prevent "flying" look
+      meshRef.current.position.x = THREE.MathUtils.damp(meshRef.current.position.x, targetPos.x, 25, delta);
+      meshRef.current.position.y = THREE.MathUtils.damp(meshRef.current.position.y, targetPos.y, 25, delta);
+      meshRef.current.position.z = THREE.MathUtils.damp(meshRef.current.position.z, targetPos.z, 25, delta);
       velocityY.current = 0;
     } else {
       // Real Gravity Drop logic
@@ -75,6 +76,8 @@ export default function InteractableObject({ pincerRefs }) {
           if (meshRef.current.position.y <= 0.15) {
             meshRef.current.position.y = 0.15;
             velocityY.current = 0; 
+            // Sync final landing position to store so the bot knows exactly where to pick it up next time
+            setBallState(null, [meshRef.current.position.x, 0.15, meshRef.current.position.z]);
           }
         }
         
