@@ -58,8 +58,8 @@ export default function RoboticArm({ armId, position, accentColor, bodyColor, pi
     if (elbowRef.current)     elbowRef.current.rotation.x     = THREE.MathUtils.lerp(elbowRef.current.rotation.x,     elbowAngle,    0.12);
 
     const po = 0.1 + pincerOpen * 0.15;
-    if (leftPincerRef.current)  leftPincerRef.current.position.z  = THREE.MathUtils.lerp(leftPincerRef.current.position.z,   po, 0.18);
-    if (rightPincerRef.current) rightPincerRef.current.position.z = THREE.MathUtils.lerp(rightPincerRef.current.position.z,  -po, 0.18);
+    if (leftPincerRef.current)  leftPincerRef.current.position.x  = THREE.MathUtils.lerp(leftPincerRef.current.position.x,   po, 0.18);
+    if (rightPincerRef.current) rightPincerRef.current.position.x = THREE.MathUtils.lerp(rightPincerRef.current.position.x,  -po, 0.18);
   });
 
   return (
@@ -108,14 +108,16 @@ export default function RoboticArm({ armId, position, accentColor, bodyColor, pi
               <RoundedBox args={[0.26, 0.16, 0.48]} radius={0.04} smoothness={4} material={baseDarkMat} castShadow />
               <group ref={pincerTargetRef} position={[0, 0.36, 0]} />
 
-              <group ref={leftPincerRef} position={[0, 0.26, 0.1]}>
-                <RoundedBox args={[0.09, 0.48, 0.05]} radius={0.02} smoothness={4} material={bodyMat} castShadow />
-                <RoundedBox position={[0, 0.22, -0.04]} args={[0.07, 0.07, 0.02]} radius={0.01} smoothness={4} material={accentMat} />
+              {/* Left jaw — offset on +X, opens left */}
+              <group ref={leftPincerRef} position={[0.1, 0.26, 0]}>
+                <RoundedBox args={[0.05, 0.48, 0.09]} radius={0.02} smoothness={4} material={bodyMat} castShadow />
+                <RoundedBox position={[-0.04, 0.22, 0]} args={[0.02, 0.07, 0.07]} radius={0.01} smoothness={4} material={accentMat} />
               </group>
 
-              <group ref={rightPincerRef} position={[0, 0.26, -0.1]}>
-                <RoundedBox args={[0.09, 0.48, 0.05]} radius={0.02} smoothness={4} material={bodyMat} castShadow />
-                <RoundedBox position={[0, 0.22, 0.04]} args={[0.07, 0.07, 0.02]} radius={0.01} smoothness={4} material={accentMat} />
+              {/* Right jaw — offset on -X, opens right */}
+              <group ref={rightPincerRef} position={[-0.1, 0.26, 0]}>
+                <RoundedBox args={[0.05, 0.48, 0.09]} radius={0.02} smoothness={4} material={bodyMat} castShadow />
+                <RoundedBox position={[0.04, 0.22, 0]} args={[0.02, 0.07, 0.07]} radius={0.01} smoothness={4} material={accentMat} />
               </group>
             </group>
           </group>

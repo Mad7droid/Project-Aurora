@@ -1,8 +1,10 @@
 import React, { Suspense, useRef, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
-import RoboticArm from './RoboticArm';
+import RoboticArm   from './RoboticArm';
 import RoboticArmV1 from './RoboticArmV1';
+import RoboticArmV2 from './RoboticArmV2';
+import RoboticArmV3 from './RoboticArmV3';
 import InteractableObject from './InteractableObject';
 import { useStore } from '../store';
 import * as THREE from 'three';
@@ -58,8 +60,24 @@ export default function ArmSimulation() {
     const store = useStore.getState();
     if (store.isTargetSelected && !store.attachedTo) {
       store.setBallState(null, [e.point.x, 0.15, e.point.z]);
-      store.setIsTargetSelected(false); // Deselect after moving
+      store.setIsTargetSelected(false);
     }
+  };
+
+  // Single dispatch function — keeps JSX DRY
+  const renderArm = (id, posX) => {
+    const vis = armVisuals[id];
+    const sharedProps = {
+      armId: id,
+      position: [posX, 0, 0],
+      accentColor: vis.accentColor,
+      bodyColor:   vis.bodyColor,
+      pincerTargetRef: pincerRefs[id],
+    };
+    if (armModel === 'v1') return <RoboticArmV1 armId={id} position={[posX, 0, 0]} pincerTargetRef={pincerRefs[id]} />;
+    if (armModel === 'v2') return <RoboticArmV2 {...sharedProps} />;
+    if (armModel === 'v3') return <RoboticArmV3 {...sharedProps} />;
+    return <RoboticArm {...sharedProps} />; // v0 default
   };
 
   return (
@@ -67,7 +85,7 @@ export default function ArmSimulation() {
       camera={{ position: [0, 5, 9], fov: 42 }}
       shadows
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
-      dpr={[1, 1.5]}   // cap pixel ratio for performance
+      dpr={[1, 2]}   // cap pixel ratio for performance
     >
       <SceneBackground />
       <CameraController controlsRef={controlsRef} />
@@ -101,40 +119,8 @@ export default function ArmSimulation() {
         </mesh>
 
         <group>
-          {activeArms.includes('left') && (
-            armModel === 'v1' ? (
-              <RoboticArmV1
-                armId="left"
-                position={[activeArms.length > 1 ? armVisuals.left.posX : 0, 0, 0]}
-                pincerTargetRef={pincerRefs.left}
-              />
-            ) : (
-              <RoboticArm
-                armId="left"
-                position={[activeArms.length > 1 ? armVisuals.left.posX : 0, 0, 0]}
-                accentColor={armVisuals.left.accentColor}
-                bodyColor={armVisuals.left.bodyColor}
-                pincerTargetRef={pincerRefs.left}
-              />
-            )
-          )}
-          {activeArms.includes('right') && (
-            armModel === 'v1' ? (
-              <RoboticArmV1
-                armId="right"
-                position={[armVisuals.right.posX, 0, 0]}
-                pincerTargetRef={pincerRefs.right}
-              />
-            ) : (
-              <RoboticArm
-                armId="right"
-                position={[armVisuals.right.posX, 0, 0]}
-                accentColor={armVisuals.right.accentColor}
-                bodyColor={armVisuals.right.bodyColor}
-                pincerTargetRef={pincerRefs.right}
-              />
-            )
-          )}
+          {activeArms.includes('left') && renderArm('left', activeArms.length > 1 ? armVisuals.left.posX : 0)}
+          {activeArms.includes('right') && renderArm('right', armVisuals.right.posX)}
         </group>
 
         <InteractableObject pincerRefs={pincerRefs} />

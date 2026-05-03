@@ -129,8 +129,10 @@ export default function ConfigPanel() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Arm Model</span>
                   <select className="btn" style={{ padding: '4px 8px' }} value={armModel} onChange={e => setArmModel(e.target.value)}>
-                    <option value="v0">V0 (Sleek Concept)</option>
-                    <option value="v1">V1 (Physical Kit)</option>
+                    <option value="v0">V0 (Sleek Concept — 3 DOF)</option>
+                    <option value="v1">V1 (Physical Kit — 3 DOF)</option>
+                    <option value="v2">V2 (Compact — 2 DOF)</option>
+                    <option value="v3">V3 (Industrial — 6 DOF)</option>
                   </select>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

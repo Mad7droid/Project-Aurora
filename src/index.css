@@ -42,7 +42,32 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-#root { width: 100%; height: 100%; display: flex; }
+#root { 
+  width: 100%; height: 100%; 
+  display: flex; 
+  flex-direction: row; 
+}
+
+@media (max-width: 768px) {
+  #root { flex-direction: column; }
+  .hide-mobile { display: none !important; }
+  .show-mobile { display: block !important; }
+  .flex-mobile-column { flex-direction: column !important; }
+  
+  .right-panel-wrapper .panel {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: var(--bg-app) !important;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.show-mobile { display: none; }
 
 /* ─── Panel ─────────────────────────────────────── */
 .panel {
@@ -196,4 +221,65 @@ input[type=range][disabled]::-webkit-slider-thumb { background: var(--text-terti
   width: 7px; height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+/* ─── Mobile Bottom Nav ──────────────────────────── */
+.bottom-nav {
+  height: 64px;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 10px;
+  z-index: 100;
+}
+
+.bottom-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+}
+
+.bottom-nav-btn.active {
+  color: var(--accent);
+}
+
+/* ─── Mobile Joystick Overlay ─────────────────────── */
+.joystick-container {
+  position: absolute;
+  bottom: 80px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 50;
+}
+
+.joystick-base {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.joystick-handle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 15px var(--accent-glow);
+  cursor: pointer;
 }

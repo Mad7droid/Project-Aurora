@@ -62,8 +62,8 @@ export default function TelemetryPanel() {
         {activeArms.includes('right') && <ArmBlock armId="right" label="RIGHT ARM" />}
       </div>
 
-      {/* Controls reference */}
-      <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', marginTop: '8px' }}>
+      {/* Controls reference — desktop only */}
+      <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', marginTop: '8px' }} className="hide-mobile">
         <div className="label" style={{ marginBottom: '10px' }}>Keyboard Controls</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
           {[

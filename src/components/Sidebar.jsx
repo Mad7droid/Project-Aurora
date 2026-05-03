@@ -1,21 +1,39 @@
 import React from 'react';
 import { useStore } from '../store';
-import { Layers, Settings2, Wrench, BotMessageSquare, AlertTriangle, Activity } from 'lucide-react';
+import { Layers, Settings2, Wrench, BotMessageSquare, AlertTriangle, Activity, Scan } from 'lucide-react';
 
 const NAV = [
-  { id: 'simulation',    icon: Layers,         label: 'Simulation'     },
-  { id: 'configuration', icon: Settings2,       label: 'Configuration'  },
-  { id: 'calibration',   icon: Wrench,          label: 'Calibration'    },
-  { id: 'llm',           icon: BotMessageSquare,label: 'AI Commands'    },
-  { id: 'training',      icon: Activity,        label: 'Training'       },
+  { id: 'llm',           icon: BotMessageSquare, label: 'AI Commands'    },
+  { id: 'vision',        icon: Scan,             label: 'Vision Control' },
+  { id: 'simulation',    icon: Layers,           label: 'Simulation'     },
+  { id: 'configuration', icon: Settings2,        label: 'Configuration'  },
+  { id: 'calibration',   icon: Wrench,           label: 'Calibration'    },
+  { id: 'training',      icon: Activity,         label: 'Training'       },
 ];
 
 export default function Sidebar() {
-  const { currentView, setCurrentView, mode } = useStore();
+  const { currentView, setCurrentView, mode, setIsRightPanelOpen, setIsSidebarOpen } = useStore();
+
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+  React.useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, []);
+
+  const handleNav = (id) => {
+    setCurrentView(id);
+    if (isMobile) {
+      setIsSidebarOpen(false);
+      setIsRightPanelOpen(id !== 'simulation');
+    } else {
+      setIsRightPanelOpen(true);
+    }
+  };
 
   return (
     <div style={{
-      width: '220px', height: '100vh',
+      width: '100%', height: '100%',
       background: 'rgba(10,10,10,0.95)',
       borderRight: '1px solid rgba(255,255,255,0.06)',
       display: 'flex', flexDirection: 'column',
@@ -46,7 +64,7 @@ export default function Sidebar() {
           return (
             <button
               key={id}
-              onClick={() => setCurrentView(id)}
+              onClick={() => handleNav(id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: '10px',
                 width: '100%', padding: '9px 12px',

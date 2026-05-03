@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useStore } from '../store';
 import * as THREE from 'three';
@@ -22,16 +22,35 @@ const canMat = new THREE.MeshPhysicalMaterial({
 
 export default function InteractableObject({ pincerRefs }) {
   const meshRef = useRef();
-  
+  const prevAttachedTo = useRef(null);
+
   // Store state
   const attachedTo = useStore(s => s.attachedTo);
   const ballPosition = useStore(s => s.ballPosition);
   const targetType = useStore(s => s.targetType);
   const isSelected = useStore(s => s.isTargetSelected);
   const setIsSelected = useStore(s => s.setIsTargetSelected);
+  const setBallState = useStore(s => s.setBallState);
+
+  // Set initial position imperatively (we don't use the position prop
+  // so React can't teleport the mesh when ballPosition state changes)
+  useEffect(() => {
+    if (meshRef.current) {
+      meshRef.current.position.set(...ballPosition);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame(() => {
     if (!meshRef.current) return;
+
+    // Detect drop transition: was attached, now free
+    if (prevAttachedTo.current && !attachedTo) {
+      // Capture actual world XZ position of the mesh (it's currently at pincer height)
+      // Set ballPosition to floor level at that XZ so lerp animates the fall naturally
+      const cur = meshRef.current.position;
+      setBallState(null, [cur.x, 0.15, cur.z]);
+    }
+    prevAttachedTo.current = attachedTo;
 
     if (attachedTo && pincerRefs[attachedTo]?.current) {
       // Follow the pincer if attached
@@ -70,7 +89,6 @@ export default function InteractableObject({ pincerRefs }) {
       {/* The main object */}
       <mesh
         ref={meshRef}
-        position={ballPosition}
         castShadow
         receiveShadow
         onClick={handleClick}

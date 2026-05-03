@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Rounded Square Background (Chat bubble style) -->
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#e8a45a"/>
+  
+  <!-- Robot Face Outline -->
+  <rect x="16" y="24" width="32" height="24" rx="4" fill="#0d0d0f"/>
+  
+  <!-- Eyes -->
+  <circle cx="24" cy="36" r="4" fill="#e8a45a"/>
+  <circle cx="40" cy="36" r="4" fill="#e8a45a"/>
+  
+  <!-- Antenna -->
+  <line x1="32" y1="24" x2="32" y1="16" stroke="#0d0d0f" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="14" r="3" fill="#0d0d0f"/>
+  
+  <!-- Small Mouth detail -->
+  <rect x="26" y="42" width="12" height="2" rx="1" fill="#e8a45a" opacity="0.8"/>
+</svg>

@@ -10,6 +10,10 @@ const initialArmState = {
   shoulderAngle: Math.PI / 4,
   elbowAngle: -Math.PI / 4,
   pincerOpen: 0,
+  // V3 wrist DOF — ignored by V0/V1/V2
+  wristPitch: 0,
+  wristRoll: 0,
+  wristYaw: 0,
 };
 
 const DEFAULT_SCENE = {
@@ -33,8 +37,9 @@ const DEFAULT_ARM_VISUALS = {
 export const useStore = create((set, get) => ({
   // App mode & View
   mode: 'SIMULATION',
-  currentView: 'simulation',
+  currentView: 'llm',
   isRightPanelOpen: true,
+  isSidebarOpen: false,
 
   // Arms
   activeArms: ['left'],
@@ -75,11 +80,55 @@ export const useStore = create((set, get) => ({
   setMode:        (mode)   => set({ mode }),
   setCurrentView: (view)   => set({ currentView: view }),
   setIsRightPanelOpen: (isOpen) => set({ isRightPanelOpen: isOpen }),
+  setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   setActiveArms:  (arms)   => set({ activeArms: arms }),
 
   setArmState: (id, updates) => set(state => ({
     arms: { ...state.arms, [id]: { ...state.arms[id], ...updates } }
   })),
+
+  toggleGrip: (armId) => {
+    const state = get();
+    const arm = state.arms[armId];
+    const isOpening = arm.pincerOpen !== 1;
+
+    if (isOpening) {
+      if (state.attachedTo === armId) {
+        // Drop: compute XZ from FK, always land on floor (y=0.15)
+        // The ball mesh is currently at pincer height; lerp in InteractableObject
+        // will animate it smoothly down to the floor — this IS the fall animation.
+        const dims = state.dimensions;
+        const armX = state.armVisuals[armId]?.posX || 0;
+        const r = Math.sin(arm.shoulderAngle) * dims.link1
+                + Math.sin(arm.shoulderAngle + arm.elbowAngle) * (dims.link2 + 0.36);
+        const dropX = armX + Math.sin(arm.baseAngle) * r;
+        const dropZ = Math.cos(arm.baseAngle) * r;
+        state.setIsTargetSelected(false);
+        state.setBallState(null, [dropX, 0.15, dropZ]);
+      }
+      state.setArmState(armId, { pincerOpen: 1 });
+    } else {
+      if (state.attachedTo === null) {
+        // Grab: check proximity using FK end-effector position
+        const dims = state.dimensions;
+        const armX = state.armVisuals[armId]?.posX || 0;
+        const r = Math.sin(arm.shoulderAngle) * dims.link1
+                + Math.sin(arm.shoulderAngle + arm.elbowAngle) * (dims.link2 + 0.36);
+        const h = Math.cos(arm.shoulderAngle) * dims.link1
+                + Math.cos(arm.shoulderAngle + arm.elbowAngle) * (dims.link2 + 0.36);
+        const endX = armX + Math.sin(arm.baseAngle) * r;
+        const endZ = Math.cos(arm.baseAngle) * r;
+        const endY = dims.baseHeight + h - 0.15;
+        const [bx, by, bz] = state.ballPosition;
+        const dist = Math.sqrt((endX - bx) ** 2 + (endY - by) ** 2 + (endZ - bz) ** 2);
+        if (dist < 0.8) {
+          state.setIsTargetSelected(false);
+          state.setBallState(armId, state.ballPosition);
+        }
+      }
+      state.setArmState(armId, { pincerOpen: 0 });
+    }
+  },
 
   setDimensions: (dims) => {
     set({ dimensions: dims });
@@ -110,6 +159,10 @@ export const useStore = create((set, get) => ({
   setArmModel: (model) => {
     set({ armModel: model });
     localStorage.setItem('kbot_armmodel', JSON.stringify(model));
+    // Reposition ball based on arm reach:
+    // V2 has no elbow so arm reach is shorter — move ball closer
+    const ballPos = model === 'v2' ? [0, 0.15, 0.9] : [0, 0.15, 1.5];
+    get().setBallState(null, ballPos);
   },
 
   resetSceneDefaults: () => {
@@ -256,8 +309,20 @@ export const useStore = create((set, get) => ({
     if (action === 'dropBall') {
       for (const id of active) get().setArmState(id, { pincerOpen: 1 });
       await delay(400);
-      // Detach the ball, place it at its current 3D position
-      get().setBallState(null, get().ballPosition);
+
+      // FK for X/Z, always floor for Y — the lerp in InteractableObject animates the fall
+      const id = active[0];
+      const arm = get().arms[id];
+      const dims = get().dimensions;
+      const armX = get().armVisuals[id]?.posX || 0;
+      const r = Math.sin(arm.shoulderAngle) * dims.link1
+              + Math.sin(arm.shoulderAngle + arm.elbowAngle) * (dims.link2 + 0.36);
+      const dropX = armX + Math.sin(arm.baseAngle) * r;
+      const dropZ = Math.cos(arm.baseAngle) * r;
+
+      get().setIsTargetSelected(false);
+      get().setBallState(null, [dropX, 0.15, dropZ]);
+
       for (const id of active) get().setArmState(id, { baseAngle: 0, shoulderAngle: Math.PI/4, elbowAngle: -Math.PI/4 });
       await delay(300);
       for (const id of active) get().setArmState(id, { pincerOpen: 0 });
@@ -282,6 +347,31 @@ export const useStore = create((set, get) => ({
       }
       if (active.includes('left'))  get().setArmState('left',  { baseAngle: 0, shoulderAngle: Math.PI/4, elbowAngle: -Math.PI/4 });
       if (active.includes('right')) get().setArmState('right', { baseAngle: 0, shoulderAngle: Math.PI/4, elbowAngle: -Math.PI/4 });
+    }
+
+    if (action === 'sweep') {
+      const id = active[0];
+      const s = u => get().setArmState(id, u);
+      s({ pincerOpen: 0 }); // close pincer
+      await delay(200);
+      s({ baseAngle: -Math.PI/3, shoulderAngle: Math.PI/3 }); // reach left and down
+      await delay(600);
+      s({ baseAngle: Math.PI/3 }); // sweep to right
+      await delay(1000);
+      s({ baseAngle: 0, shoulderAngle: Math.PI/4 }); // back
+    }
+
+    if (action === 'serve') {
+      const id = active[0];
+      const s = u => get().setArmState(id, u);
+      // V3 specific (uses wrist), works gracefully on others by ignoring wrist
+      s({ baseAngle: 0, shoulderAngle: 0, elbowAngle: Math.PI/2, wristPitch: Math.PI/2, wristRoll: 0, pincerOpen: 1 });
+      await delay(600);
+      s({ wristRoll: Math.PI/2 });
+      await delay(400);
+      s({ wristRoll: -Math.PI/2 });
+      await delay(400);
+      s({ wristRoll: 0, wristPitch: 0, shoulderAngle: Math.PI/4, elbowAngle: -Math.PI/4 });
     }
   },
 }))

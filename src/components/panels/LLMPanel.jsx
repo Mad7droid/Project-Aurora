@@ -11,14 +11,16 @@ function parseCommand(text) {
   if (t.includes('wave')) return { action: 'wave', label: 'Executing: Wave sequence' };
   if (t.includes('dance')) return { action: 'dance', label: 'Executing: Dance sequence' };
   if (t.includes('high five') || t.includes('highfive')) return { action: 'highFive', label: 'Executing: High Five sequence' };
+  if (t.includes('sweep') || t.includes('clear')) return { action: 'sweep', label: 'Executing: Sweep sequence' };
+  if (t.includes('serve') || t.includes('present') || t.includes('inspect')) return { action: 'serve', label: 'Executing: Serve/Inspect sequence' };
   if (t.includes('home') || t.includes('reset') || t.includes('neutral')) return { action: 'home', label: 'Returning to home position' };
   return null;
 }
 
-const SUGGESTIONS = ['Pick up the ball', 'Wave hello', 'Do a dance', 'Drop the ball', 'High five'];
+const SUGGESTIONS = ['Pick up the ball', 'Wave hello', 'Sweep the floor', 'Serve object', 'High five'];
 
 export default function LLMPanel() {
-  const { runPreset, setArmState, activeArms } = useStore();
+  const { runPreset, setArmState, activeArms, setActiveArms } = useStore();
   const { sendLLMCommand } = useArmConnection();
   const [input, setInput] = useState('');
   const [history, setHistory] = useState([
@@ -58,7 +60,7 @@ export default function LLMPanel() {
     } else {
       setHistory(h => [...h, {
         role: 'assistant',
-        text: `Command not recognised: "${cmd}". Try: pick up, drop, wave, dance, high five, or home.`,
+        text: `Command not recognised: "${cmd}". Try: pick up, drop, wave, dance, sweep, serve, high five, or home.`,
         error: true,
       }]);
     }
@@ -69,10 +71,39 @@ export default function LLMPanel() {
   return (
     <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '20px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
         <BotMessageSquare size={16} style={{ color: 'var(--accent)' }} />
         <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>AI Commands</span>
         <div style={{ marginLeft: 'auto', fontSize: '0.65rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>LOCAL</div>
+      </div>
+
+      {/* Arm count toggle */}
+      <div style={{
+        display: 'flex', gap: '4px',
+        background: 'rgba(255,255,255,0.04)',
+        padding: '3px', borderRadius: '6px',
+        border: '1px solid var(--border-subtle)',
+        marginBottom: '16px', flexShrink: 0
+      }}>
+        {[{ label: '1 ARM', arms: ['left'] }, { label: '2 ARMS', arms: ['left', 'right'] }].map(({ label, arms }) => {
+          const active = activeArms.length === arms.length;
+          return (
+            <button
+              key={label}
+              onClick={() => setActiveArms(arms)}
+              style={{
+                flex: 1, padding: '5px 0', borderRadius: '4px', fontSize: '0.72rem',
+                fontWeight: 600, letterSpacing: '0.05em', transition: 'all 0.15s',
+                background: active ? 'rgba(232,164,90,0.15)' : 'transparent',
+                color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                border: `1px solid ${active ? 'rgba(232,164,90,0.25)' : 'transparent'}`,
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* History */}
