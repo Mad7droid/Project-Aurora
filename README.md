@@ -1,44 +1,39 @@
-# ✨ Project Aurora: Autonomous Teleoperation & VLA Training Environment
+# Project Aurora: Autonomous Teleoperation & VLA Training Environment
 
-**Next-Generation Robotic Simulation & Control Suite**  
-*Currently optimized for the **KBot** robotic system.*
+Next-Gen Robotic Teleoperation and VLA Training Simulation Tool.
+Currently optimized for the KBot robotic system.
 
-![VLA Training](https://img.shields.io/badge/VLA-Training_Enabled-blueviolet?style=for-the-badge)
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Three.js](https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js&logoColor=white)
+## Overview
+Project Aurora is a simulation platform designed for the development and validation of Vision-Language-Action (VLA) models and high-fidelity robotic teleoperation. The tool provides a unified environment for mapping natural language instructions and visual inputs to precise robotic actions.
 
----
+## Tech Stack
+*   **Frontend**: React.js (Vite)
+*   **3D Engine**: Three.js / React Three Fiber / React Three Drei
+*   **Computer Vision**: Google MediaPipe (Hand Landmarker)
+*   **State Management**: Zustand
+*   **Styling**: Vanilla CSS (Custom Glassmorphism Design System)
+*   **Physics/Math**: Custom Kinematic Solvers (IK/FK)
 
-## 🌌 Overview
-**Project Aurora** is a high-fidelity simulation platform designed for training **Vision-Language-Action (VLA)** models and conducting remote teleoperation. It bridges the gap between natural language commands and physical robotic execution through an immersive 3D workspace.
+## Core Capabilities
 
-## 🚀 Core Capabilities
+### VLA Training & Data Collection
+*   **Vision-Language-Action Pipeline**: Framework for generating datasets that pair natural language commands with visual states and motor actions.
+*   **Action Mapping**: High-precision joint state and end-effector coordinate calculation for training kinematic control models.
 
-### 🤖 VLA & AI Training Ready
-Built to generate and validate datasets for Vision-Language-Action models. 
-- **Language**: Direct LLM integration for complex task parsing.
-- **Vision**: Real-time hand tracking and spatial awareness.
-- **Action**: High-precision kinematic execution mapping.
+### Teleoperation & Control
+*   **Multi-Model Support**: Native simulation for KBot V0, V1, V2, and V3 robotic arm variants.
+*   **Hand Tracking Control**: Gesture-to-action mapping using MediaPipe for zero-latency end-effector control.
+*   **Telemetry Feedback**: Real-time joint velocity, torque estimation, and positional telemetry.
 
-### 🎮 Immersive Teleoperation
-- **Multi-Model Simulation**: Support for KBot V0, V1, V2, and V3 variants.
-- **Gesture Control**: Zero-latency hand-mapping via MediaPipe.
-- **HUD Telemetry**: Real-time feedback on joint states, torque, and positional data.
+## Technical Specifications
+*   **Graphics Engine**: React Three Fiber (Three.js)
+*   **Input Processing**: MediaPipe (Computer Vision) and Natural Language parsing
+*   **State Management**: Zustand
+*   **UI System**: Vanilla CSS / Glassmorphism Architecture
 
----
-
-## 🛠️ Technical Stack
-- **Engine**: React Three Fiber / Three.js
-- **Intelligence**: MediaPipe Hand Tracking & Custom LLM Pipeline
-- **State**: Zustand-powered reactive data flow
-- **UI**: Vanilla CSS Glassmorphism Design System
-
----
-
-## 📂 Documentation
-- 📐 **[Architecture](./ARCHITECTURE.md)**: State sync and pipeline details.
-- 🧮 **[Logic & Physics](./LOGIC.md)**: VLA heuristics and IK algorithms.
+## Documentation
+*   [Architecture Overview](./ARCHITECTURE.md): Technical breakdown of state synchronization and rendering pipelines.
+*   [Logic & Physics](./LOGIC.md): Kinematic heuristics, VLA integration, and interaction logic.
 
 ---
-
-© 2024 Project Aurora. Advancing the future of autonomous robotics.
+© 2024 Project Aurora. Developed by Mad7droid.
