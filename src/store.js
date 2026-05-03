@@ -76,6 +76,10 @@ export const useStore = create((set, get) => ({
   // Camera reset signal (incrementing triggers reset in ArmSimulation)
   cameraResetTick: 0,
 
+  // AI & Connection Settings (persisted)
+  claudeApiKey:   getSaved('kbot_claude_key', ''),
+  customWsUrl:    getSaved('kbot_ws_url', 'ws://localhost:8765'),
+
   // ── Actions ──────────────────────────────────────────────────────────
   setMode:        (mode)   => set({ mode }),
   setCurrentView: (view)   => set({ currentView: view }),
@@ -94,17 +98,9 @@ export const useStore = create((set, get) => ({
 
     if (isOpening) {
       if (state.attachedTo === armId) {
-        // Drop: compute XZ from FK, always land on floor (y=0.15)
-        // The ball mesh is currently at pincer height; lerp in InteractableObject
-        // will animate it smoothly down to the floor — this IS the fall animation.
-        const dims = state.dimensions;
-        const armX = state.armVisuals[armId]?.posX || 0;
-        const r = Math.sin(arm.shoulderAngle) * dims.link1
-                + Math.sin(arm.shoulderAngle + arm.elbowAngle) * (dims.link2 + 0.36);
-        const dropX = armX + Math.sin(arm.baseAngle) * r;
-        const dropZ = Math.cos(arm.baseAngle) * r;
+        // Drop: InteractableObject.jsx captures the actual 3D world position when attachedTo becomes null.
         state.setIsTargetSelected(false);
-        state.setBallState(null, [dropX, 0.15, dropZ]);
+        state.setBallState(null, state.ballPosition);
       }
       state.setArmState(armId, { pincerOpen: 1 });
     } else {
@@ -120,8 +116,10 @@ export const useStore = create((set, get) => ({
         const endZ = Math.cos(arm.baseAngle) * r;
         const endY = dims.baseHeight + h - 0.15;
         const [bx, by, bz] = state.ballPosition;
-        const dist = Math.sqrt((endX - bx) ** 2 + (endY - by) ** 2 + (endZ - bz) ** 2);
-        if (dist < 0.8) {
+        
+        // Fast-math squared distance check (0.8 * 0.8 = 0.64)
+        const distSq = (endX - bx) ** 2 + (endY - by) ** 2 + (endZ - bz) ** 2;
+        if (distSq < 0.64) {
           state.setIsTargetSelected(false);
           state.setBallState(armId, state.ballPosition);
         }
@@ -169,6 +167,16 @@ export const useStore = create((set, get) => ({
     set({ sceneConfig: { ...DEFAULT_SCENE }, armVisuals: { ...DEFAULT_ARM_VISUALS } });
     localStorage.removeItem('kbot_scene');
     localStorage.removeItem('kbot_armvis');
+  },
+
+  setClaudeApiKey: (key) => {
+    set({ claudeApiKey: key });
+    localStorage.setItem('kbot_claude_key', JSON.stringify(key));
+  },
+
+  setCustomWsUrl: (url) => {
+    set({ customWsUrl: url });
+    localStorage.setItem('kbot_ws_url', JSON.stringify(url));
   },
 
   resetSimulation: () => {
@@ -310,18 +318,9 @@ export const useStore = create((set, get) => ({
       for (const id of active) get().setArmState(id, { pincerOpen: 1 });
       await delay(400);
 
-      // FK for X/Z, always floor for Y — the lerp in InteractableObject animates the fall
-      const id = active[0];
-      const arm = get().arms[id];
-      const dims = get().dimensions;
-      const armX = get().armVisuals[id]?.posX || 0;
-      const r = Math.sin(arm.shoulderAngle) * dims.link1
-              + Math.sin(arm.shoulderAngle + arm.elbowAngle) * (dims.link2 + 0.36);
-      const dropX = armX + Math.sin(arm.baseAngle) * r;
-      const dropZ = Math.cos(arm.baseAngle) * r;
-
+      // Detach the ball. InteractableObject.jsx will automatically handle the gravity drop.
       get().setIsTargetSelected(false);
-      get().setBallState(null, [dropX, 0.15, dropZ]);
+      get().setBallState(null, get().ballPosition);
 
       for (const id of active) get().setArmState(id, { baseAngle: 0, shoulderAngle: Math.PI/4, elbowAngle: -Math.PI/4 });
       await delay(300);

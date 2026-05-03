@@ -17,16 +17,16 @@ export function useArmConnection() {
 
   useEffect(() => {
     const tryConnect = () => {
-      const { mode } = useStore.getState();
+      const { mode, customWsUrl } = useStore.getState();
       if (mode !== 'PHYSICAL') return;
 
-      const socket = new WebSocket('ws://localhost:8765');
+      const socket = new WebSocket(customWsUrl);
       globalWs = socket;
       ws.current = socket;
 
-      socket.onopen  = () => console.log('[WS] Connected to physical arm server');
+      socket.onopen  = () => console.log(`[WS] Connected to ${customWsUrl}`);
       socket.onclose = () => { console.log('[WS] Disconnected'); globalWs = null; };
-      socket.onerror = () => console.warn('[WS] Could not connect to ws://localhost:8765');
+      socket.onerror = () => console.warn(`[WS] Could not connect to ${customWsUrl}`);
     };
 
     // Subscribe to mode changes
@@ -72,7 +72,7 @@ export function useArmConnection() {
   }, []);
 
   const sendLLMCommand = (text) => {
-    const { mode } = useStore.getState();
+    const { mode, customWsUrl } = useStore.getState();
     if (mode === 'PHYSICAL' && globalWs && globalWs.readyState === WebSocket.OPEN) {
       globalWs.send(JSON.stringify({ type: 'llm_command', text }));
     } else {
@@ -80,5 +80,86 @@ export function useArmConnection() {
     }
   };
 
-  return { sendLLMCommand };
+  const sendClaudeCommand = async (prompt, history = []) => {
+    const { claudeApiKey } = useStore.getState();
+    if (!claudeApiKey) throw new Error('Claude API Key not configured');
+
+    const systemPrompt = `
+      You are the AI controller for KBot, a robotic arm simulation.
+      You can control 1 or 2 arms (left and right).
+      
+      Available Presets: 'wave', 'pickBall', 'dropBall', 'dance', 'sweep', 'serve', 'highFive', 'home'.
+      
+      Output your response as a JSON object with two fields:
+      1. "thought": A brief explanation of what you are doing.
+      2. "commands": An array of command objects.
+      
+      Each command object must be:
+      - { "type": "preset", "action": "preset_name" }
+      - { "type": "wait", "ms": 1000 }
+      - { "type": "notify", "text": "message" }
+      - { "type": "reset" }
+      - { "type": "randomizeBall" }
+      - { "type": "setArmState", "id": "left"|"right", "state": { "baseAngle": number, ... } }
+      
+      Example for "run 3 reps of picking ball from random spots":
+      {
+        "thought": "I will randomize the ball position and then pick it up three times.",
+        "commands": [
+          { "type": "randomizeBall" },
+          { "type": "preset", "action": "pickBall" },
+          { "type": "preset", "action": "dropBall" },
+          { "type": "randomizeBall" },
+          { "type": "preset", "action": "pickBall" },
+          { "type": "preset", "action": "dropBall" },
+          { "type": "randomizeBall" },
+          { "type": "preset", "action": "pickBall" },
+          { "type": "preset", "action": "dropBall" }
+        ]
+      }
+      
+      Keep thoughts concise. Only output valid JSON.
+    `;
+
+    const messages = [
+      ...history.filter(h => h.role !== 'system').map(h => ({
+        role: h.role === 'assistant' ? 'assistant' : 'user',
+        content: h.text
+      })),
+      { role: 'user', content: prompt }
+    ];
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': claudeApiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'dangerously-allow-browser': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: messages
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'Failed to connect to Claude');
+    }
+
+    const data = await response.json();
+    const text = data.content[0].text;
+    
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      // Fallback if Claude didn't return perfect JSON
+      return { thought: text, commands: [] };
+    }
+  };
+
+  return { sendLLMCommand, sendClaudeCommand };
 }
