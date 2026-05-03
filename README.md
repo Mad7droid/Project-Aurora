@@ -1,7 +1,7 @@
 # Project Aurora: Autonomous Teleoperation & VLA Training Environment
 
-Next-Gen Robotic Teleoperation and VLA Training Simulation Tool.
-Currently optimized for the KBot robotic system.
+**The core simulation platform for Autonomous Robotic Teleoperation and VLA (Vision-Language-Action) dataset generation.**
+Currently optimized for the KBot ecosystem.
 
 ## Overview
 Project Aurora is a simulation platform designed for the development and validation of Vision-Language-Action (VLA) models and high-fidelity robotic teleoperation. The tool provides a unified environment for mapping natural language instructions and visual inputs to precise robotic actions.
