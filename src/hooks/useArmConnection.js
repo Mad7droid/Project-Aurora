@@ -101,20 +101,21 @@ export function useArmConnection() {
       - { "type": "reset" }
       - { "type": "randomizeBall" }
       - { "type": "setArmState", "id": "left"|"right", "state": { "baseAngle": number, ... } }
+      - { "type": "loop", "count": number, "commands": [...] }
       
-      Example for "run 3 reps of picking ball from random spots":
+      Example for "run 100 reps of picking ball from random spots":
       {
-        "thought": "I will randomize the ball position and then pick it up three times.",
+        "thought": "I will create a loop to perform the pick-and-drop sequence 100 times with randomized ball positions.",
         "commands": [
-          { "type": "randomizeBall" },
-          { "type": "preset", "action": "pickBall" },
-          { "type": "preset", "action": "dropBall" },
-          { "type": "randomizeBall" },
-          { "type": "preset", "action": "pickBall" },
-          { "type": "preset", "action": "dropBall" },
-          { "type": "randomizeBall" },
-          { "type": "preset", "action": "pickBall" },
-          { "type": "preset", "action": "dropBall" }
+          { 
+            "type": "loop", 
+            "count": 100, 
+            "commands": [
+              { "type": "randomizeBall" },
+              { "type": "preset", "action": "pickBall" },
+              { "type": "preset", "action": "dropBall" }
+            ] 
+          }
         ]
       }
       

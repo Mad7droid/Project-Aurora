@@ -50,12 +50,13 @@ export default function LLMPanel() {
       } else if (cmd.type === 'reset') {
         resetSimulation();
       } else if (cmd.type === 'randomizeBall') {
-        // Random position within reach [x: -2 to 2, y: 0.15, z: 0.5 to 2.5]
-        const rx = (Math.random() - 0.5) * 4;
-        const rz = 0.5 + Math.random() * 2;
-        useStore.getState().setBallState(null, [rx, 0.15, rz]);
+        useStore.getState().randomizeBall();
       } else if (cmd.type === 'setArmState') {
         setArmState(cmd.id, cmd.state);
+      } else if (cmd.type === 'loop') {
+        for (let i = 0; i < (cmd.count || 1); i++) {
+          await executeCommandQueue(cmd.commands);
+        }
       }
     }
   };

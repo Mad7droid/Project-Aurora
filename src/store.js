@@ -183,6 +183,13 @@ export const useStore = create((set, get) => ({
     localStorage.removeItem('kbot_armvis');
   },
 
+  randomizeBall: () => {
+    // Random position within reachable bounds [x: -2 to 2, y: 0.15, z: 0.5 to 2.5]
+    const rx = (Math.random() - 0.5) * 4;
+    const rz = 0.5 + Math.random() * 2;
+    get().setBallState(null, [rx, 0.15, rz]);
+  },
+
   setClaudeApiKey: (key) => {
     set({ claudeApiKey: key });
     localStorage.setItem('kbot_claude_key', JSON.stringify(key));
