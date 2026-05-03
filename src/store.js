@@ -1,5 +1,19 @@
 import { create } from 'zustand'
 
+const kinematicsWorker = new Worker(new URL('./workers/kinematics.worker.js', import.meta.url));
+
+const calculateIK = (data) => new Promise((resolve, reject) => {
+  const handler = (e) => {
+    if (e.data.type === 'IK_RESULT' && e.data.target === data.target) {
+      kinematicsWorker.removeEventListener('message', handler);
+      if (e.data.success) resolve(e.data.data);
+      else reject(new Error(e.data.error));
+    }
+  };
+  kinematicsWorker.addEventListener('message', handler);
+  kinematicsWorker.postMessage({ type: 'CALCULATE_IK', data });
+});
+
 const getSaved = (key, fallback) => {
   try { const v = localStorage.getItem(key); if (v) return JSON.parse(v); } catch {}
   return fallback;
@@ -259,40 +273,15 @@ export const useStore = create((set, get) => ({
         target = Math.abs(ballPosition[0] - lv) <= Math.abs(ballPosition[0] - rv) ? 'left' : 'right';
       }
       
-      // -- Inverse Kinematics (IK) Calculation --
-      const armX = armVisuals[target]?.posX || 0;
-      const dx = ballPosition[0] - armX;
-      const dy = ballPosition[1];
-      const dz = ballPosition[2];
-
-      // Base rotation (yaw)
-      const baseAngle = Math.atan2(dx, dz);
-
-      // Planar geometry
-      const r = Math.sqrt(dx * dx + dz * dz);
-      const h = dy - dimensions.baseHeight; // Height relative to shoulder
-      
-      const L1 = dimensions.link1;
-      const L2 = dimensions.link2 + 0.36; // include wrist to pincer center
-      const d = Math.sqrt(r * r + h * h); // Direct distance from shoulder to ball
-
-      // Reachability check
-      if (d >= L1 + L2) {
-        get().showNotification(`Target out of reach! Max radius: ${(L1 + L2).toFixed(1)}u.`);
-        return; // Abort
+      // Offload IK math to WebWorker
+      let result;
+      try {
+        result = await calculateIK({ ballPosition, dimensions, armVisuals, target });
+      } catch (err) {
+        get().showNotification(err.message);
+        return;
       }
-
-      // Law of Cosines for angles
-      const alpha = Math.atan2(r, h); // Angle from +Y axis
-      const cosGamma = (L1*L1 + d*d - L2*L2) / (2 * L1 * d);
-      const gamma = Math.acos(Math.max(-1, Math.min(1, cosGamma)));
-      
-      const cosBeta = (L1*L1 + L2*L2 - d*d) / (2 * L1 * L2);
-      const beta = Math.acos(Math.max(-1, Math.min(1, cosBeta)));
-
-      // "Elbow Up" configuration
-      const shoulderAngle = alpha - gamma;
-      const elbowAngle = Math.PI - beta; // positive pitch bends forward
+      const { baseAngle, shoulderAngle, elbowAngle } = result;
 
       const s = u => get().setArmState(target, u);
 
