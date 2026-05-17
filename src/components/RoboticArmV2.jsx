@@ -37,17 +37,19 @@ export default function RoboticArmV2({ armId, position, accentColor, bodyColor, 
   // V2: fixed forearm length (shorter, compact look)
   const fw = 0.9;
 
-  useFrame(() => {
+  useFrame((state, delta) => {
+    const lambda = 8;
     if (baseRef.current)
-      baseRef.current.rotation.y = THREE.MathUtils.lerp(baseRef.current.rotation.y, baseAngle, 0.12);
+      baseRef.current.rotation.y = THREE.MathUtils.damp(baseRef.current.rotation.y, baseAngle, lambda, delta);
     if (shoulderRef.current)
-      shoulderRef.current.rotation.x = THREE.MathUtils.lerp(shoulderRef.current.rotation.x, shoulderAngle, 0.12);
+      shoulderRef.current.rotation.x = THREE.MathUtils.damp(shoulderRef.current.rotation.x, shoulderAngle, lambda, delta);
 
     const po = 0.1 + pincerOpen * 0.18;
+    const pincerLambda = 12;
     if (leftPincerRef.current)
-      leftPincerRef.current.position.x = THREE.MathUtils.lerp(leftPincerRef.current.position.x, po, 0.18);
+      leftPincerRef.current.position.x = THREE.MathUtils.damp(leftPincerRef.current.position.x, po, pincerLambda, delta);
     if (rightPincerRef.current)
-      rightPincerRef.current.position.x = THREE.MathUtils.lerp(rightPincerRef.current.position.x, -po, 0.18);
+      rightPincerRef.current.position.x = THREE.MathUtils.damp(rightPincerRef.current.position.x, -po, pincerLambda, delta);
   });
 
   return (

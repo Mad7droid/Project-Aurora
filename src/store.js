@@ -1,5 +1,19 @@
 import { create } from 'zustand'
 
+const kinematicsWorker = new Worker(new URL('./workers/kinematics.worker.js', import.meta.url));
+
+const calculateIK = (data) => new Promise((resolve, reject) => {
+  const handler = (e) => {
+    if (e.data.type === 'IK_RESULT' && e.data.target === data.target) {
+      kinematicsWorker.removeEventListener('message', handler);
+      if (e.data.success) resolve(e.data.data);
+      else reject(new Error(e.data.error));
+    }
+  };
+  kinematicsWorker.addEventListener('message', handler);
+  kinematicsWorker.postMessage({ type: 'CALCULATE_IK', data });
+});
+
 const getSaved = (key, fallback) => {
   try { const v = localStorage.getItem(key); if (v) return JSON.parse(v); } catch {}
   return fallback;
@@ -76,6 +90,10 @@ export const useStore = create((set, get) => ({
   // Camera reset signal (incrementing triggers reset in ArmSimulation)
   cameraResetTick: 0,
 
+  // AI & Connection Settings (persisted)
+  claudeApiKey:   getSaved('kbot_claude_key', ''),
+  customWsUrl:    getSaved('kbot_ws_url', 'ws://localhost:8765'),
+
   // ── Actions ──────────────────────────────────────────────────────────
   setMode:        (mode)   => set({ mode }),
   setCurrentView: (view)   => set({ currentView: view }),
@@ -94,17 +112,9 @@ export const useStore = create((set, get) => ({
 
     if (isOpening) {
       if (state.attachedTo === armId) {
-        // Drop: compute XZ from FK, always land on floor (y=0.15)
-        // The ball mesh is currently at pincer height; lerp in InteractableObject
-        // will animate it smoothly down to the floor — this IS the fall animation.
-        const dims = state.dimensions;
-        const armX = state.armVisuals[armId]?.posX || 0;
-        const r = Math.sin(arm.shoulderAngle) * dims.link1
-                + Math.sin(arm.shoulderAngle + arm.elbowAngle) * (dims.link2 + 0.36);
-        const dropX = armX + Math.sin(arm.baseAngle) * r;
-        const dropZ = Math.cos(arm.baseAngle) * r;
+        // Drop: InteractableObject.jsx captures the actual 3D world position when attachedTo becomes null.
         state.setIsTargetSelected(false);
-        state.setBallState(null, [dropX, 0.15, dropZ]);
+        state.setBallState(null, state.ballPosition);
       }
       state.setArmState(armId, { pincerOpen: 1 });
     } else {
@@ -120,8 +130,10 @@ export const useStore = create((set, get) => ({
         const endZ = Math.cos(arm.baseAngle) * r;
         const endY = dims.baseHeight + h - 0.15;
         const [bx, by, bz] = state.ballPosition;
-        const dist = Math.sqrt((endX - bx) ** 2 + (endY - by) ** 2 + (endZ - bz) ** 2);
-        if (dist < 0.8) {
+        
+        // Fast-math squared distance check (0.8 * 0.8 = 0.64)
+        const distSq = (endX - bx) ** 2 + (endY - by) ** 2 + (endZ - bz) ** 2;
+        if (distSq < 0.64) {
           state.setIsTargetSelected(false);
           state.setBallState(armId, state.ballPosition);
         }
@@ -169,6 +181,23 @@ export const useStore = create((set, get) => ({
     set({ sceneConfig: { ...DEFAULT_SCENE }, armVisuals: { ...DEFAULT_ARM_VISUALS } });
     localStorage.removeItem('kbot_scene');
     localStorage.removeItem('kbot_armvis');
+  },
+
+  randomizeBall: () => {
+    // Random position within reachable bounds [x: -2 to 2, y: 0.15, z: 0.5 to 2.5]
+    const rx = (Math.random() - 0.5) * 4;
+    const rz = 0.5 + Math.random() * 2;
+    get().setBallState(null, [rx, 0.15, rz]);
+  },
+
+  setClaudeApiKey: (key) => {
+    set({ claudeApiKey: key });
+    localStorage.setItem('kbot_claude_key', JSON.stringify(key));
+  },
+
+  setCustomWsUrl: (url) => {
+    set({ customWsUrl: url });
+    localStorage.setItem('kbot_ws_url', JSON.stringify(url));
   },
 
   resetSimulation: () => {
@@ -251,40 +280,15 @@ export const useStore = create((set, get) => ({
         target = Math.abs(ballPosition[0] - lv) <= Math.abs(ballPosition[0] - rv) ? 'left' : 'right';
       }
       
-      // -- Inverse Kinematics (IK) Calculation --
-      const armX = armVisuals[target]?.posX || 0;
-      const dx = ballPosition[0] - armX;
-      const dy = ballPosition[1];
-      const dz = ballPosition[2];
-
-      // Base rotation (yaw)
-      const baseAngle = Math.atan2(dx, dz);
-
-      // Planar geometry
-      const r = Math.sqrt(dx * dx + dz * dz);
-      const h = dy - dimensions.baseHeight; // Height relative to shoulder
-      
-      const L1 = dimensions.link1;
-      const L2 = dimensions.link2 + 0.36; // include wrist to pincer center
-      const d = Math.sqrt(r * r + h * h); // Direct distance from shoulder to ball
-
-      // Reachability check
-      if (d >= L1 + L2) {
-        get().showNotification(`Target out of reach! Max radius: ${(L1 + L2).toFixed(1)}u.`);
-        return; // Abort
+      // Offload IK math to WebWorker
+      let result;
+      try {
+        result = await calculateIK({ ballPosition, dimensions, armVisuals, target });
+      } catch (err) {
+        get().showNotification(err.message);
+        return;
       }
-
-      // Law of Cosines for angles
-      const alpha = Math.atan2(r, h); // Angle from +Y axis
-      const cosGamma = (L1*L1 + d*d - L2*L2) / (2 * L1 * d);
-      const gamma = Math.acos(Math.max(-1, Math.min(1, cosGamma)));
-      
-      const cosBeta = (L1*L1 + L2*L2 - d*d) / (2 * L1 * L2);
-      const beta = Math.acos(Math.max(-1, Math.min(1, cosBeta)));
-
-      // "Elbow Up" configuration
-      const shoulderAngle = alpha - gamma;
-      const elbowAngle = Math.PI - beta; // positive pitch bends forward
+      const { baseAngle, shoulderAngle, elbowAngle } = result;
 
       const s = u => get().setArmState(target, u);
 
@@ -292,11 +296,11 @@ export const useStore = create((set, get) => ({
       s({ pincerOpen: 1 }); 
       await delay(200);
       s({ baseAngle }); 
-      await delay(600);
+      await delay(800); // give base more time to turn
       s({ shoulderAngle, elbowAngle }); 
-      await delay(800);
+      await delay(1200); // give arm more time to reach the floor
       s({ pincerOpen: 0 }); // Grab
-      await delay(400);
+      await delay(600);
       
       // Officially attach the ball to the arm's pincer target
       get().setBallState(target, ballPosition);
@@ -310,18 +314,9 @@ export const useStore = create((set, get) => ({
       for (const id of active) get().setArmState(id, { pincerOpen: 1 });
       await delay(400);
 
-      // FK for X/Z, always floor for Y — the lerp in InteractableObject animates the fall
-      const id = active[0];
-      const arm = get().arms[id];
-      const dims = get().dimensions;
-      const armX = get().armVisuals[id]?.posX || 0;
-      const r = Math.sin(arm.shoulderAngle) * dims.link1
-              + Math.sin(arm.shoulderAngle + arm.elbowAngle) * (dims.link2 + 0.36);
-      const dropX = armX + Math.sin(arm.baseAngle) * r;
-      const dropZ = Math.cos(arm.baseAngle) * r;
-
+      // Detach the ball. InteractableObject.jsx will automatically handle the gravity drop.
       get().setIsTargetSelected(false);
-      get().setBallState(null, [dropX, 0.15, dropZ]);
+      get().setBallState(null, get().ballPosition);
 
       for (const id of active) get().setArmState(id, { baseAngle: 0, shoulderAngle: Math.PI/4, elbowAngle: -Math.PI/4 });
       await delay(300);

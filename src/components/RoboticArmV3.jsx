@@ -40,25 +40,27 @@ export default function RoboticArmV3({ armId, position, accentColor, bodyColor, 
   const { baseHeight: bh, link1: l1, link2: l2 } = dimensions;
   const WRIST_LEN = 0.42; // short wrist link connecting elbow to gimbal
 
-  useFrame(() => {
+  useFrame((state, delta) => {
+    const lambda = 8;
     if (baseRef.current)
-      baseRef.current.rotation.y = THREE.MathUtils.lerp(baseRef.current.rotation.y, baseAngle, 0.12);
+      baseRef.current.rotation.y = THREE.MathUtils.damp(baseRef.current.rotation.y, baseAngle, lambda, delta);
     if (shoulderRef.current)
-      shoulderRef.current.rotation.x = THREE.MathUtils.lerp(shoulderRef.current.rotation.x, shoulderAngle, 0.12);
+      shoulderRef.current.rotation.x = THREE.MathUtils.damp(shoulderRef.current.rotation.x, shoulderAngle, lambda, delta);
     if (elbowRef.current)
-      elbowRef.current.rotation.x = THREE.MathUtils.lerp(elbowRef.current.rotation.x, elbowAngle, 0.12);
+      elbowRef.current.rotation.x = THREE.MathUtils.damp(elbowRef.current.rotation.x, elbowAngle, lambda, delta);
     if (wristPitchRef.current)
-      wristPitchRef.current.rotation.x = THREE.MathUtils.lerp(wristPitchRef.current.rotation.x, wristPitch, 0.12);
+      wristPitchRef.current.rotation.x = THREE.MathUtils.damp(wristPitchRef.current.rotation.x, wristPitch, lambda, delta);
     if (wristRollRef.current)
-      wristRollRef.current.rotation.y = THREE.MathUtils.lerp(wristRollRef.current.rotation.y, wristRoll, 0.12);
+      wristRollRef.current.rotation.y = THREE.MathUtils.damp(wristRollRef.current.rotation.y, wristRoll, lambda, delta);
     if (wristYawRef.current)
-      wristYawRef.current.rotation.z = THREE.MathUtils.lerp(wristYawRef.current.rotation.z, wristYaw, 0.12);
+      wristYawRef.current.rotation.z = THREE.MathUtils.damp(wristYawRef.current.rotation.z, wristYaw, lambda, delta);
 
     const po = 0.1 + pincerOpen * 0.15;
+    const pincerLambda = 12;
     if (leftPincerRef.current)
-      leftPincerRef.current.position.x = THREE.MathUtils.lerp(leftPincerRef.current.position.x, po, 0.18);
+      leftPincerRef.current.position.x = THREE.MathUtils.damp(leftPincerRef.current.position.x, po, pincerLambda, delta);
     if (rightPincerRef.current)
-      rightPincerRef.current.position.x = THREE.MathUtils.lerp(rightPincerRef.current.position.x, -po, 0.18);
+      rightPincerRef.current.position.x = THREE.MathUtils.damp(rightPincerRef.current.position.x, -po, pincerLambda, delta);
   });
 
   return (

@@ -40,15 +40,17 @@ export default function InteractableObject({ pincerRefs }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useFrame(() => {
+  const velocityY = useRef(0);
+
+  useFrame((state, delta) => {
     if (!meshRef.current) return;
 
     // Detect drop transition: was attached, now free
     if (prevAttachedTo.current && !attachedTo) {
-      // Capture actual world XZ position of the mesh (it's currently at pincer height)
-      // Set ballPosition to floor level at that XZ so lerp animates the fall naturally
       const cur = meshRef.current.position;
+      // Record the actual drop X/Z in the store so it doesn't "reset" back to the original spot
       setBallState(null, [cur.x, 0.15, cur.z]);
+      velocityY.current = 0; 
     }
     prevAttachedTo.current = attachedTo;
 
@@ -57,13 +59,32 @@ export default function InteractableObject({ pincerRefs }) {
       const pincer = pincerRefs[attachedTo].current;
       const targetPos = new THREE.Vector3();
       pincer.getWorldPosition(targetPos);
-      // Offset slightly down so it sits in the claws
       targetPos.y -= 0.15;
-      meshRef.current.position.lerp(targetPos, 0.2);
+      
+      // Faster damp for pick-up to prevent "flying" look
+      meshRef.current.position.x = THREE.MathUtils.damp(meshRef.current.position.x, targetPos.x, 25, delta);
+      meshRef.current.position.y = THREE.MathUtils.damp(meshRef.current.position.y, targetPos.y, 25, delta);
+      meshRef.current.position.z = THREE.MathUtils.damp(meshRef.current.position.z, targetPos.z, 25, delta);
+      velocityY.current = 0;
     } else {
-      // Lerp to the target position on the floor
-      const target = new THREE.Vector3(...ballPosition);
-      meshRef.current.position.lerp(target, 0.15);
+      // Real Gravity Drop logic
+      if (!isSelected) {
+        if (meshRef.current.position.y > 0.15) {
+          velocityY.current -= 12.81 * delta; // standard gravity
+          meshRef.current.position.y += velocityY.current * delta;
+          
+          if (meshRef.current.position.y <= 0.15) {
+            meshRef.current.position.y = 0.15;
+            velocityY.current = 0; 
+            // Sync final landing position to store so the bot knows exactly where to pick it up next time
+            setBallState(null, [meshRef.current.position.x, 0.15, meshRef.current.position.z]);
+          }
+        }
+        
+        const target = new THREE.Vector3(...ballPosition);
+        meshRef.current.position.x = THREE.MathUtils.damp(meshRef.current.position.x, target.x, 10, delta);
+        meshRef.current.position.z = THREE.MathUtils.damp(meshRef.current.position.z, target.z, 10, delta);
+      }
     }
     
     // Add a gentle floating/bobbing effect if selected
@@ -73,7 +94,7 @@ export default function InteractableObject({ pincerRefs }) {
       meshRef.current.rotation.y += 0.02;
     } else {
       // Reset rotation slowly if not selected
-      meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, 0, 0.1);
+      meshRef.current.rotation.y = THREE.MathUtils.damp(meshRef.current.rotation.y, 0, 8, delta);
     }
   });
 

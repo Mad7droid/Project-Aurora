@@ -52,14 +52,16 @@ export default function RoboticArm({ armId, position, accentColor, bodyColor, pi
   const { baseAngle, shoulderAngle, elbowAngle, pincerOpen } = armState;
   const { baseHeight: bh, link1: l1, link2: l2 } = dimensions;
 
-  useFrame(() => {
-    if (baseRef.current)      baseRef.current.rotation.y      = THREE.MathUtils.lerp(baseRef.current.rotation.y,      baseAngle,     0.12);
-    if (shoulderRef.current)  shoulderRef.current.rotation.x  = THREE.MathUtils.lerp(shoulderRef.current.rotation.x,  shoulderAngle, 0.12);
-    if (elbowRef.current)     elbowRef.current.rotation.x     = THREE.MathUtils.lerp(elbowRef.current.rotation.x,     elbowAngle,    0.12);
+  useFrame((state, delta) => {
+    const lambda = 8; // Damping factor
+    if (baseRef.current)      baseRef.current.rotation.y      = THREE.MathUtils.damp(baseRef.current.rotation.y,      baseAngle,     lambda, delta);
+    if (shoulderRef.current)  shoulderRef.current.rotation.x  = THREE.MathUtils.damp(shoulderRef.current.rotation.x,  shoulderAngle, lambda, delta);
+    if (elbowRef.current)     elbowRef.current.rotation.x     = THREE.MathUtils.damp(elbowRef.current.rotation.x,     elbowAngle,    lambda, delta);
 
     const po = 0.1 + pincerOpen * 0.15;
-    if (leftPincerRef.current)  leftPincerRef.current.position.x  = THREE.MathUtils.lerp(leftPincerRef.current.position.x,   po, 0.18);
-    if (rightPincerRef.current) rightPincerRef.current.position.x = THREE.MathUtils.lerp(rightPincerRef.current.position.x,  -po, 0.18);
+    const pincerLambda = 12;
+    if (leftPincerRef.current)  leftPincerRef.current.position.x  = THREE.MathUtils.damp(leftPincerRef.current.position.x,   po, pincerLambda, delta);
+    if (rightPincerRef.current) rightPincerRef.current.position.x = THREE.MathUtils.damp(rightPincerRef.current.position.x,  -po, pincerLambda, delta);
   });
 
   return (
